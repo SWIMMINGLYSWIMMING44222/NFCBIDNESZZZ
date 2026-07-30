@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Review Link Generator</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --card2: #232735;
+    --text: #eef0f6; --muted: #9aa2b5; --accent: #4f8ef7;
+    --accent2: #34c77b; --danger: #f66; --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    max-width: 560px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  h1 { font-size: 1.15rem; font-weight: 700; }
+  h1 span { color: var(--accent); }
+  .gear { background: var(--card); border: none; color: var(--muted); width: 40px; height: 40px; border-radius: 50%; font-size: 1.15rem; cursor: pointer; }
+  .panel { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+  label { font-size: 0.78rem; color: var(--muted); display: block; margin-bottom: 6px; }
+  textarea, input[type=password] {
+    width: 100%; padding: 13px 14px; border-radius: 10px; border: 1px solid #313749;
+    background: var(--card2); color: var(--text); font-size: 1rem; outline: none;
+  }
+  textarea { resize: none; height: 84px; font-family: inherit; }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 8px; }
+  .btn {
+    border: none; border-radius: 10px; padding: 13px 16px; font-size: 1rem; font-weight: 600;
+    cursor: pointer; color: #fff; background: var(--accent); flex-shrink: 0;
+  }
+  .btn:active { opacity: 0.75; }
+  .btn.ghost { background: var(--card2); color: var(--text); font-weight: 500; }
+  .btn.small { padding: 9px 12px; font-size: 0.85rem; border-radius: 8px; }
+  .btn.green { background: var(--accent2); }
+  .btn.wide { flex: 1; }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 8px; line-height: 1.45; }
+  .hidden { display: none !important; }
+  .place { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+  .place h3 { font-size: 1rem; margin-bottom: 2px; }
+  .place .addr { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+  .url-box {
+    background: var(--card2); border-radius: 8px; padding: 9px 11px; font-size: 0.72rem;
+    color: var(--muted); word-break: break-all; margin-bottom: 10px; font-family: monospace;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .status { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 12px; line-height: 1.5; }
+  .status.error { color: var(--danger); }
+  .badge { display: inline-block; font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: #1d3a2a; color: var(--accent2); margin-bottom: 8px; }
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--accent2); color: #fff; padding: 11px 22px; border-radius: 24px;
+    font-size: 0.9rem; font-weight: 600; transition: transform 0.25s ease; z-index: 99;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  details { margin-top: 10px; }
+  summary { color: var(--accent); font-size: 0.85rem; cursor: pointer; padding: 4px 0; }
+  details ol, details ul { padding-left: 20px; font-size: 0.82rem; color: var(--muted); line-height: 1.7; margin-top: 6px; }
+  details a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⭐ Review <span>Link</span> Generator</h1>
+  <button class="gear" id="gearBtn" title="Settings">⚙️</button>
+</header>
+
+<!-- SETTINGS -->
+<div class="panel hidden" id="settingsPanel">
+  <label for="apiKey">Google Places API key (used only when the link doesn't contain the Place ID)</label>
+  <div class="row">
+    <input type="password" id="apiKey" placeholder="Paste your API key" autocomplete="off">
+    <button class="btn" id="saveKeyBtn">Save</button>
+  </div>
+  <details>
+    <summary>How to get a free API key (2 min)</summary>
+    <ol>
+      <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> and sign in.</li>
+      <li>Create a project (top bar → New Project → any name → Create).</li>
+      <li>Search "Places API (New)" in the top search bar → <b>Enable</b>. (Google asks for billing, but the free monthly credit easily covers this use.)</li>
+      <li>Menu → APIs &amp; Services → <b>Credentials</b> → Create Credentials → <b>API key</b>.</li>
+      <li>Copy the key, paste it above. Optionally restrict it to "Places API (New)".</li>
+    </ol>
+  </details>
+  <p class="hint">Your key stays on this device (browser storage). It's only ever sent directly to Google.</p>
+</div>
+
+<!-- INPUT -->
+<div class="panel">
+  <label for="input">Paste the business's Google Maps share link</label>
+  <textarea id="input" placeholder="e.g. https://maps.app.goo.gl/AbC123…&#10;(the whole share text is fine too)"></textarea>
+  <div class="row" style="margin-top:10px;">
+    <button class="btn wide" id="goBtn">⭐ Get review link</button>
+    <button class="btn ghost" id="pasteBtn">📋 Paste</button>
+    <button class="btn ghost" id="clearBtn">✕</button>
+  </div>
+  <details>
+    <summary>How to copy the link from Google Maps</summary>
+    <ul>
+      <li>Open the business in the Google Maps app</li>
+      <li>Tap <b>Share</b> → <b>Copy link</b></li>
+      <li>Come back here, tap <b>Paste</b>, then <b>Get review link</b></li>
+    </ul>
+  </details>
+</div>
+
+<div id="results"></div>
+<div class="toast" id="toast">Copied!</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY_STORE = 'rlg_api_key';
+
+  // ---------- settings ----------
+  function getKey() { try { return localStorage.getItem(KEY_STORE) || ''; } catch (e) { return ''; } }
+  $('gearBtn').onclick = function () { $('settingsPanel').classList.toggle('hidden'); };
+  $('apiKey').value = getKey();
+  $('saveKeyBtn').onclick = function () {
+    try { localStorage.setItem(KEY_STORE, $('apiKey').value.trim()); } catch (e) {}
+    toast($('apiKey').value.trim() ? 'Key saved ✓' : 'Key cleared');
+    $('settingsPanel').classList.add('hidden');
+  };
+
+  // ---------- toast ----------
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+
+  // ---------- input helpers ----------
+  $('pasteBtn').onclick = function () {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function (t) {
+        $('input').value = t; if (t.trim()) run();
+      }, function () { toast('Tap the box and paste manually'); $('input').focus(); });
+    } else { toast('Tap the box and paste manually'); $('input').focus(); }
+  };
+  $('clearBtn').onclick = function () { $('input').value = ''; $('results').innerHTML = ''; };
+  $('goBtn').onclick = run;
+  $('input').addEventListener('paste', function () { setTimeout(run, 150); });
+
+  function setStatus(html, isError) {
+    $('results').innerHTML = '<div class="status' + (isError ? ' error' : '') + '">' + html + '</div>';
+  }
+
+  // ---------- URL extraction & parsing ----------
+  function firstUrl(text) {
+    var m = text.match(/https?:\/\/[^\s"'<>]+/);
+    return m ? m[0].replace(/[).,;!]+$/, '') : null;
+  }
+  function isShortLink(url) {
+    return /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl|g\.co|share\.google)\//i.test(url);
+  }
+  // Extract everything useful from a long maps URL (or raw HTML)
+  function extractFrom(str) {
+    var s;
+    try { s = decodeURIComponent(str); } catch (e) { s = str; }
+    s = str + '\n' + s; // search both raw and decoded forms
+    var out = {};
+    var m;
+    // 1. Direct Place ID (ChIJ... appears in some URLs/params/page data)
+    m = s.match(/(?:placeid=|place_id[:=]|query_place_id=|!19s)(ChIJ[0-9A-Za-z_-]{16,})/) || s.match(/\b(ChIJ[0-9A-Za-z_-]{20,})\b/);
+    if (m) out.placeId = m[1];
+    // 2. FTID (0x...:0x...) - identifies the place but isn't a Place ID
+    m = s.match(/(?:!1s|ftid=)(0x[0-9a-f]+:0x[0-9a-f]+)/i);
+    if (m) out.ftid = m[1];
+    // 3. Name from /maps/place/<name>/
+    m = str.match(/\/maps\/place\/([^\/@?#]+)/);
+    if (m) { try { out.name = decodeURIComponent(m[1]).replace(/\+/g, ' '); } catch (e) { out.name = m[1].replace(/\+/g, ' '); } }
+    // 4. Coordinates
+    m = s.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/) || s.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+    if (m) { out.lat = parseFloat(m[1]); out.lng = parseFloat(m[2]); }
+    // 5. og:url canonical long URL inside fetched HTML
+    m = str.match(/property="og:url"\s+content="([^"]+)"/) || str.match(/content="([^"]+)"\s+property="og:url"/);
+    if (m) out.canonical = m[1].replace(/&amp;/g, '&');
+    return out;
+  }
+
+  // ---------- short link expansion ----------
+  function fetchWithTimeout(url, ms) {
+    return new Promise(function (resolve, reject) {
+      var ctrl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject(new Error('timeout')); }, ms);
+      fetch(url, ctrl ? { signal: ctrl.signal } : {}).then(
+        function (r) { clearTimeout(timer); resolve(r); },
+        function (e) { clearTimeout(timer); reject(e); }
+      );
+    });
+  }
+  // Find the expanded google.com/maps URL inside proxied text/HTML.
+  // Only place data parsed from that URL is trusted — never IDs scattered
+  // in page content (those can belong to other nearby businesses).
+  function findMapsUrl(text) {
+    var m = text.match(/URL Source:\s*(https?:\/\/[^\s]+)/) ||
+            text.match(/property="og:url"\s+content="([^"]+)"/) ||
+            text.match(/content="([^"]*google\.[^"]*\/maps\/place\/[^"]+)"/) ||
+            text.match(/https?:\/\/www\.google\.[a-z.]+\/maps\/place\/[^\s"'<>\\]+/);
+    if (!m) return null;
+    var u = (m[1] || m[0]).replace(/&amp;/g, '&');
+    return /\/maps\//.test(u) ? u : null;
+  }
+  function expandShort(url) {
+    var attempts = [
+      // 1. Jina reader — reports the final URL on its "URL Source:" line
+      function () {
+        return fetchWithTimeout('https://r.jina.ai/' + url, 12000)
+          .then(function (r) { if (!r.ok) throw 0; return r.text(); });
+      },
+      // 2. allorigins JSON
+      function () {
+        return fetchWithTimeout('https://api.allorigins.win/get?url=' + encodeURIComponent(url), 12000)
+          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+          .then(function (j) { return ((j.status && j.status.url) || '') + '\n' + (j.contents || ''); });
+      },
+      // 3. codetabs proxy
+      function () {
+        return fetchWithTimeout('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 12000)
+          .then(function (r) { if (!r.ok) throw 0; return r.text(); });
+      }
+    ];
+    var i = 0;
+    function next() {
+      if (i >= attempts.length) return Promise.reject(new Error('expand-failed'));
+      return attempts[i++]().then(function (text) {
+        var longUrl = findMapsUrl(text);
+        if (!longUrl) throw 0;
+        var info = extractFrom(longUrl);
+        if (info.placeId || info.ftid || info.name) return info;
+        throw 0;
+      }).catch(function () { return next(); });
+    }
+    return next();
+  }
+
+  // ---------- Places API resolution ----------
+  function resolveViaApi(info) {
+    var key = getKey();
+    if (!key) return Promise.reject(new Error('no-key'));
+    var body = { textQuery: info.name || info.ftid, maxResultCount: 3 };
+    if (info.lat != null) {
+      body.locationBias = { circle: { center: { latitude: info.lat, longitude: info.lng }, radius: 500 } };
+    }
+    return fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress'
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error((j.error && j.error.message) || 'API error');
+        var p = (j.places || [])[0];
+        if (!p) throw new Error('Place not found via API');
+        return { placeId: p.id, name: (p.displayName && p.displayName.text) || info.name, addr: p.formattedAddress || '' };
+      });
+    });
+  }
+
+  // ---------- main flow ----------
+  function run() {
+    var raw = $('input').value.trim();
+    if (!raw) { toast('Paste a Maps link first'); return; }
+    var url = firstUrl(raw);
+    if (!url) { setStatus('⚠️ No link found in what you pasted. Copy the share link from Google Maps and try again.', true); return; }
+
+    // g.page review shortcuts are already review links
+    if (/^https?:\/\/g\.page\//i.test(url)) {
+      var gp = url.replace(/\/$/, '');
+      if (!/\/review$/i.test(gp)) gp += '/review';
+      renderResult({ name: 'Business (g.page link)', addr: '', reviewUrl: gp, badge: 'g.page review link' });
+      return;
+    }
+
+    if (isShortLink(url)) {
+      setStatus('Expanding short link… (up to ~15s)');
+      expandShort(url).then(function (info) {
+        handleInfo(info, url);
+      }).catch(function () {
+        manualExpandHelp(url);
+      });
+    } else {
+      handleInfo(extractFrom(url), url);
+    }
+  }
+
+  function mergeInfo(a, b) {
+    for (var k in b) if (b[k] != null && a[k] == null) a[k] = b[k];
+    return a;
+  }
+
+  function handleInfo(info, originalUrl) {
+    if (info.placeId) {
+      renderResult({
+        name: info.name || 'Place found',
+        addr: '',
+        reviewUrl: 'https://search.google.com/local/writereview?placeid=' + encodeURIComponent(info.placeId),
+        badge: 'Place ID found in link — exact match'
+      });
+      return;
+    }
+    if (info.name || info.ftid) {
+      if (!getKey()) {
+        setStatus('This link doesn’t contain the Place ID directly, so I need your API key to look it up.<br><br>Tap ⚙️ to add your key (free — guide inside), then try again.', true);
+        return;
+      }
+      setStatus('Looking up exact Place ID…');
+      resolveViaApi(info).then(function (p) {
+        renderResult({
+          name: p.name, addr: p.addr,
+          reviewUrl: 'https://search.google.com/local/writereview?placeid=' + encodeURIComponent(p.placeId),
+          badge: 'Matched via Places API' + (info.lat != null ? ' (pinpointed by link coordinates)' : '')
+        });
+      }).catch(function (e) {
+        setStatus('⚠️ ' + escapeHtml(e.message) + '<br><br>Check your API key in ⚙️, or try pasting the full URL from the browser address bar.', true);
+      });
+      return;
+    }
+    setStatus('⚠️ Couldn’t read place info from that link.<br><br>Try this: open the link, then copy the <b>full URL from the browser address bar</b> (it starts with google.com/maps/place/…) and paste that here instead.<br><br><button class="btn small" onclick="window.open(\'' + originalUrl.replace(/'/g, '') + '\',\'_blank\')">↗ Open the link</button>', true);
+  }
+
+  function manualExpandHelp(url) {
+    setStatus('Couldn’t auto-expand the short link right now.<br><br><b>Quick fix:</b> tap the button below — it opens the exact link you pasted. Then copy the long URL from the browser’s address bar (starts with google.com/maps/place/…) and paste it back here.<br><br>If the wrong business opens, the copied share link itself was wrong — re-copy it in Google Maps.<br><br><button class="btn small" onclick="window.open(\'' + url.replace(/'/g, '') + '\',\'_blank\')">↗ Open the link</button>', true);
+  }
+
+  // ---------- output ----------
+  function renderResult(r) {
+    $('results').innerHTML =
+      '<div class="place">' +
+      '<span class="badge">' + escapeHtml(r.badge) + '</span>' +
+      '<h3>' + escapeHtml(r.name) + '</h3>' +
+      (r.addr ? '<div class="addr">' + escapeHtml(r.addr) + '</div>' : '') +
+      '<div class="url-box">' + escapeHtml(r.reviewUrl) + '</div>' +
+      '<div class="actions">' +
+        '<button class="btn small green" id="copyBtn">📋 Copy review link</button>' +
+        '<button class="btn small" id="shareBtn">📤 Share</button>' +
+        '<button class="btn small ghost" id="openBtn">↗ Test it</button>' +
+      '</div></div>';
+    $('copyBtn').onclick = function () { copyText(r.reviewUrl); };
+    $('shareBtn').onclick = function () {
+      if (navigator.share) {
+        navigator.share({ title: 'Leave a review — ' + r.name, url: r.reviewUrl }).catch(function () {});
+      } else { copyText(r.reviewUrl); }
+    };
+    $('openBtn').onclick = function () { window.open(r.reviewUrl, '_blank'); };
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast('Copied ✓'); }, function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Copied ✓'); } catch (e) { toast('Copy failed'); }
+    document.body.removeChild(ta);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+})();
+</script>
+</body>
+</html>
